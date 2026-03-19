@@ -1,16 +1,8 @@
 import https from "node:https";
 import http from "node:http";
 
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  maxSockets: 100,
-  keepAliveMsecs: 10000,
-});
-
-const httpAgent = new http.Agent({
-  keepAlive: true,
-  maxSockets: 100,
-});
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100, keepAliveMsecs: 10000 });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 100 });
 
 function getHeaders(extra = {}) {
   return {
@@ -37,9 +29,7 @@ export default async function handler(req, res) {
       port: uri.port || (uri.protocol === "https:" ? 443 : 80),
       path: uri.pathname + uri.search,
       method: req.method,
-      headers: getHeaders({
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-      }),
+      headers: getHeaders({ ...(req.headers.range ? { Range: req.headers.range } : {}) }),
       agent: uri.protocol === "https:" ? httpsAgent : httpAgent,
     };
 
@@ -50,30 +40,20 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Methods", "*");
 
     const proxy = lib.request(options, (r) => {
-      if (r.headers["content-type"])
-        res.setHeader("Content-Type", r.headers["content-type"]);
-      if (r.headers["content-length"])
-        res.setHeader("Content-Length", r.headers["content-length"]);
-      if (r.headers["accept-ranges"])
-        res.setHeader("Accept-Ranges", "bytes");
-
+      if (r.headers["content-type"]) res.setHeader("Content-Type", r.headers["content-type"]);
+      if (r.headers["content-length"]) res.setHeader("Content-Length", r.headers["content-length"]);
+      if (r.headers["accept-ranges"]) res.setHeader("Accept-Ranges", "bytes");
       if (r.headers["content-range"]) {
         res.setHeader("Content-Range", r.headers["content-range"]);
         res.writeHead(206);
       } else {
         res.writeHead(r.statusCode || 200);
       }
-
       r.pipe(res);
     });
 
     proxy.setTimeout(15000, () => proxy.destroy());
-
-    proxy.on("error", (err) => {
-      res.writeHead(500);
-      res.end(err.message);
-    });
-
+    proxy.on("error", (err) => { res.writeHead(500); res.end(err.message); });
     req.pipe(proxy);
   } catch (e) {
     res.writeHead(500);
