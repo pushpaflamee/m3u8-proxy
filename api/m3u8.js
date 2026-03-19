@@ -5,9 +5,6 @@ export default async function handler(req, res) {
 
     target = decodeURIComponent(target);
 
-    // =============================
-    // 🔥 FETCH WITH STRONG HEADERS
-    // =============================
     const response = await fetch(target, {
       headers: {
         "User-Agent":
@@ -23,40 +20,37 @@ export default async function handler(req, res) {
     const contentType = response.headers.get("content-type") || "";
     let text = await response.text();
 
-    // =============================
-    // 🚫 BLOCK HTML (Cloudflare)
-    // =============================
+    // Block HTML (Cloudflare or invalid)
     if (
       contentType.includes("text/html") ||
       text.includes("<!DOCTYPE html") ||
-      text.includes("cf-browser-verification") ||
       text.includes("Attention Required")
     ) {
-      return res.status(403).send("Blocked by Cloudflare");
+      return res.status(403).send("Blocked or invalid response");
     }
 
-    // =============================
-    // 🎬 VALIDATE M3U8
-    // =============================
     if (!text.includes("#EXTM3U")) {
-      return res.status(500).send("Invalid m3u8 response");
+      return res.status(500).send("Invalid m3u8");
     }
 
     const base = target.substring(0, target.lastIndexOf("/") + 1);
 
-    // =============================
-    // 🔁 REWRITE PLAYLIST
-    // =============================
     text = text
       .split("\n")
       .map((line) => {
+        line = line.trim();
         if (!line || line.startsWith("#")) return line;
 
-        let absolute = line.startsWith("http")
-          ? line
-          : new URL(line, base).href;
+        let absolute;
+        try {
+          absolute = line.startsWith("http")
+            ? line
+            : new URL(line, base).href;
+        } catch {
+          return line;
+        }
 
-        // 🔴 SEGMENTS (.ts / .jpg / seg-)
+        // segments
         if (
           absolute.includes(".ts") ||
           absolute.includes(".jpg") ||
@@ -65,19 +59,15 @@ export default async function handler(req, res) {
           return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
         }
 
-        // 🔵 NESTED M3U8
+        // nested m3u8
         if (absolute.includes(".m3u8")) {
           return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
         }
 
-        // fallback
         return absolute;
       })
       .join("\n");
 
-    // =============================
-    // 📤 RESPONSE
-    // =============================
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "no-cache");
@@ -85,7 +75,7 @@ export default async function handler(req, res) {
     return res.status(200).send(text);
 
   } catch (e) {
-    console.error("M3U8 ERROR:", e);
+    console.error(e);
     res.status(500).send("M3U8 proxy error");
   }
 }
