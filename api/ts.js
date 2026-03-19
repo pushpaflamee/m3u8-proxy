@@ -12,14 +12,20 @@ const httpAgent = new http.Agent({
   maxSockets: 100,
 });
 
-function getHeaders(extra = {}) {
+function getHeaders(targetUrl, extra = {}) {
+  // Extract origin dynamically from target URL
+  let origin = "https://megacloud.club";
+  try {
+    origin = new URL(targetUrl).origin;
+  } catch {}
+  
   return {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
     "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Origin": "https://megacloud.club",
-    "Referer": "https://megacloud.club/",
+    "Origin": origin,
+    "Referer": origin + "/",
     "Connection": "keep-alive",
     "Cache-Control": "no-cache",
     ...extra,
@@ -30,7 +36,6 @@ export default async function handler(req, res) {
   try {
     let target = req.query.url;
     if (!target) return res.status(400).send("Missing url");
-
     target = decodeURIComponent(target);
     const uri = new URL(target);
 
@@ -39,7 +44,7 @@ export default async function handler(req, res) {
       port: uri.port || (uri.protocol === "https:" ? 443 : 80),
       path: uri.pathname + uri.search,
       method: req.method,
-      headers: getHeaders({
+      headers: getHeaders(target, {
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       }),
       agent: uri.protocol === "https:" ? httpsAgent : httpAgent,
@@ -54,10 +59,8 @@ export default async function handler(req, res) {
     const proxy = lib.request(options, (r) => {
       if (r.headers["content-type"])
         res.setHeader("Content-Type", r.headers["content-type"]);
-
       if (r.headers["content-length"])
         res.setHeader("Content-Length", r.headers["content-length"]);
-
       if (r.headers["accept-ranges"])
         res.setHeader("Accept-Ranges", "bytes");
 
@@ -71,9 +74,7 @@ export default async function handler(req, res) {
       r.pipe(res);
     });
 
-    proxy.setTimeout(15000, () => {
-      proxy.destroy();
-    });
+    proxy.setTimeout(15000, () => proxy.destroy());
 
     proxy.on("error", (err) => {
       res.writeHead(500);
@@ -81,7 +82,6 @@ export default async function handler(req, res) {
     });
 
     req.pipe(proxy);
-
   } catch (e) {
     res.writeHead(500);
     res.end(e.message);
