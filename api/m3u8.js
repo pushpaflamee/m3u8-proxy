@@ -51,16 +51,18 @@ export default async function handler(req, res) {
         // Skip if already proxied
         if (absolute.includes("/proxy/")) return absolute;
 
-        // Segments: .ts, .jpg, .jpeg, .m4s, .mp4, seg-*, or token-style (no ext, long path)
-        const isSegment = /\.(ts|jpg|jpeg|m4s|mp4)(\?|$)/i.test(absolute) ||
-                          absolute.includes("seg-") ||
-                          (!absolute.includes(".m3u8") && (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{40,}/)));
+        // === SEGMENT DETECTION ===
+        // hd-1/hd-2: seg-* pattern with ANY extension (obfuscated segments)
+        // hd-3: token URLs without .m3u8 extension
+        const isSegment = 
+          absolute.includes("seg-") || 
+          (!absolute.includes(".m3u8") && (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{40,}/)));
 
         if (isSegment) {
           return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
         }
 
-        // Nested m3u8
+        // Nested m3u8 playlists
         if (absolute.includes(".m3u8")) {
           return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
         }
