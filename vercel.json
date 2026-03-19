@@ -1,6 +1,10 @@
 {
   "routes": [
     { "src": "/proxy/m3u8", "dest": "/api/m3u8.js" },
-    { "src": "/proxy/ts", "dest": "/api/ts.js" }
+    { "src": "/proxy/ts", "dest": "/api/ts.js" },
+    { "src": "/m3u8-proxy", "dest": "/api/m3u8.js" },
+    { "src": "/ts-proxy", "dest": "/api/ts.js" },
+    { "src": "/m3u8", "dest": "/api/m3u8.js" },
+    { "src": "/ts", "dest": "/api/ts.js" }
   ]
 }
