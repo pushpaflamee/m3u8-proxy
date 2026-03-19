@@ -1,7 +1,6 @@
 import https from "node:https";
 import http from "node:http";
 
-// 🔥 GLOBAL AGENTS (IMPORTANT)
 const httpsAgent = new https.Agent({
   keepAlive: true,
   maxSockets: 100,
@@ -13,7 +12,6 @@ const httpAgent = new http.Agent({
   maxSockets: 100,
 });
 
-// 🔥 COMMON HEADERS (BROWSER-LIKE)
 function getHeaders(extra = {}) {
   return {
     "User-Agent":
@@ -23,13 +21,18 @@ function getHeaders(extra = {}) {
     "Origin": "https://megacloud.club",
     "Referer": "https://megacloud.club/",
     "Connection": "keep-alive",
+    "Cache-Control": "no-cache",
     ...extra,
   };
 }
 
-export async function proxyTs(url, headers, req, res) {
+export default async function handler(req, res) {
   try {
-    const uri = new URL(url);
+    let target = req.query.url;
+    if (!target) return res.status(400).send("Missing url");
+
+    target = decodeURIComponent(target);
+    const uri = new URL(target);
 
     const options = {
       hostname: uri.hostname,
@@ -37,7 +40,6 @@ export async function proxyTs(url, headers, req, res) {
       path: uri.pathname + uri.search,
       method: req.method,
       headers: getHeaders({
-        ...headers,
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       }),
       agent: uri.protocol === "https:" ? httpsAgent : httpAgent,
@@ -50,7 +52,6 @@ export async function proxyTs(url, headers, req, res) {
     res.setHeader("Access-Control-Allow-Methods", "*");
 
     const proxy = lib.request(options, (r) => {
-      // ✅ forward important headers
       if (r.headers["content-type"])
         res.setHeader("Content-Type", r.headers["content-type"]);
 
@@ -67,8 +68,11 @@ export async function proxyTs(url, headers, req, res) {
         res.writeHead(r.statusCode || 200);
       }
 
-      // 🔥 STREAM (VERY IMPORTANT)
       r.pipe(res);
+    });
+
+    proxy.setTimeout(15000, () => {
+      proxy.destroy();
     });
 
     proxy.on("error", (err) => {
@@ -77,6 +81,7 @@ export async function proxyTs(url, headers, req, res) {
     });
 
     req.pipe(proxy);
+
   } catch (e) {
     res.writeHead(500);
     res.end(e.message);
