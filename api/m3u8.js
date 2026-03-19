@@ -18,39 +18,23 @@ export default async function handler(req, res) {
     const contentType = response.headers.get("content-type") || "";
     let text = await response.text();
 
-    if (contentType.includes("text/html") || text.includes("<!DOCTYPE html") || text.includes("Attention Required")) {
-      return res.status(403).send("Blocked or invalid response");
-    }
+    // === DEBUG: Return raw response for inspection ===
+    return res.status(200).send(JSON.stringify({
+      status: response.status,
+      statusText: response.statusText,
+      contentType: contentType,
+      first500Chars: text.substring(0, 500),
+      fullLength: text.length,
+      includesEXTM3U: text.includes("#EXTM3U"),
+      includesDOCTYPE: text.includes("<!DOCTYPE"),
+      includesCloudflare: text.includes("Cloudflare") || text.includes("Attention Required")
+    }, null, 2));
+    // === END DEBUG ===
 
-    if (!text.includes("#EXTM3U")) {
-      return res.status(500).send("Invalid m3u8");
-    }
+    // (Comment out the rest until you confirm what's being returned)
 
-    const base = target.substring(0, target.lastIndexOf("/") + 1);
-
-    text = text.split("\n").map((line) => {
-      line = line.trim();
-      if (!line || line.startsWith("#")) return line;
-      let absolute;
-      try {
-        absolute = line.startsWith("http") ? line : new URL(line, base).href;
-      } catch { return line; }
-      if (absolute.includes("/proxy/")) return absolute;
-      if (absolute.includes("seg-") || (!absolute.includes(".m3u8") && (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{40,}/)))) {
-        return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
-      }
-      if (absolute.includes(".m3u8")) {
-        return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
-      }
-      return absolute;
-    }).join("\n");
-
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Cache-Control", "no-cache");
-    return res.status(200).send(text);
   } catch (e) {
     console.error(e);
-    res.status(500).send("M3U8 proxy error");
+    res.status(500).send("M3U8 proxy error: " + e.message);
   }
 }
