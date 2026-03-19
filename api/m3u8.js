@@ -2,15 +2,16 @@ export default async function handler(req, res) {
   try {
     let target = req.query.url;
     if (!target) return res.status(400).send("Missing url");
-
     target = decodeURIComponent(target);
 
+    const targetUrl = new URL(target);
+    
     const response = await fetch(target, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
-        "Referer": "https://megacloud.club/",
-        "Origin": "https://megacloud.club",
+        "Referer": targetUrl.origin + "/",
+        "Origin": targetUrl.origin,
         "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9",
         "Connection": "keep-alive"
@@ -50,16 +51,15 @@ export default async function handler(req, res) {
           return line;
         }
 
-        // segments
+        // Segments: handle .ts, .jpg, .jpeg, .m4s, .mp4 + seg-* patterns
         if (
-          absolute.includes(".ts") ||
-          absolute.includes(".jpg") ||
+          absolute.match(/\.(ts|jpg|jpeg|png|m4s|mp4)(\?|$)/i) ||
           absolute.includes("seg-")
         ) {
           return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
         }
 
-        // nested m3u8
+        // Nested m3u8 playlists
         if (absolute.includes(".m3u8")) {
           return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
         }
@@ -73,7 +73,6 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "no-cache");
 
     return res.status(200).send(text);
-
   } catch (e) {
     console.error(e);
     res.status(500).send("M3U8 proxy error");
