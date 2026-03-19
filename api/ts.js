@@ -37,7 +37,7 @@ export default async function handler(req, res) {
       port: uri.port || (uri.protocol === "https:" ? 443 : 80),
       path: uri.pathname + uri.search,
       method: req.method,
-      headers: getHeaders(target, {
+      headers: getHeaders({
         ...(req.headers.range ? { Range: req.headers.range } : {}),
       }),
       agent: uri.protocol === "https:" ? httpsAgent : httpAgent,
