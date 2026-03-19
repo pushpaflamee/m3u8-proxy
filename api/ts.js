@@ -12,20 +12,13 @@ const httpAgent = new http.Agent({
   maxSockets: 100,
 });
 
-function getHeaders(targetUrl, extra = {}) {
-  // Extract origin dynamically from target URL
-  let origin = "https://megacloud.club";
-  try {
-    origin = new URL(targetUrl).origin;
-  } catch {}
-  
+function getHeaders(extra = {}) {
   return {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
     "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.9",
-    "Origin": origin,
-    "Referer": origin + "/",
+    "Origin": "https://megacloud.club",
+    "Referer": "https://megacloud.club/",
     "Connection": "keep-alive",
     "Cache-Control": "no-cache",
     ...extra,
