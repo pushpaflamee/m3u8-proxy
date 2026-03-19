@@ -18,12 +18,7 @@ export default async function handler(req, res) {
     const contentType = response.headers.get("content-type") || "";
     let text = await response.text();
 
-    // Block HTML (Cloudflare or invalid)
-    if (
-      contentType.includes("text/html") ||
-      text.includes("<!DOCTYPE html") ||
-      text.includes("Attention Required")
-    ) {
+    if (contentType.includes("text/html") || text.includes("<!DOCTYPE html") || text.includes("Attention Required")) {
       return res.status(403).send("Blocked or invalid response");
     }
 
@@ -33,48 +28,26 @@ export default async function handler(req, res) {
 
     const base = target.substring(0, target.lastIndexOf("/") + 1);
 
-    text = text
-      .split("\n")
-      .map((line) => {
-        line = line.trim();
-        if (!line || line.startsWith("#")) return line;
-
-        let absolute;
-        try {
-          absolute = line.startsWith("http")
-            ? line
-            : new URL(line, base).href;
-        } catch {
-          return line;
-        }
-
-        // Skip if already proxied
-        if (absolute.includes("/proxy/")) return absolute;
-
-        // === SEGMENT DETECTION ===
-        // hd-1/hd-2: seg-* pattern with ANY extension (obfuscated segments)
-        // hd-3: token URLs without .m3u8 extension
-        const isSegment = 
-          absolute.includes("seg-") || 
-          (!absolute.includes(".m3u8") && (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{40,}/)));
-
-        if (isSegment) {
-          return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
-        }
-
-        // Nested m3u8 playlists
-        if (absolute.includes(".m3u8")) {
-          return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
-        }
-
-        return absolute;
-      })
-      .join("\n");
+    text = text.split("\n").map((line) => {
+      line = line.trim();
+      if (!line || line.startsWith("#")) return line;
+      let absolute;
+      try {
+        absolute = line.startsWith("http") ? line : new URL(line, base).href;
+      } catch { return line; }
+      if (absolute.includes("/proxy/")) return absolute;
+      if (absolute.includes("seg-") || (!absolute.includes(".m3u8") && (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{40,}/)))) {
+        return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
+      }
+      if (absolute.includes(".m3u8")) {
+        return `/proxy/m3u8?url=${encodeURIComponent(absolute)}`;
+      }
+      return absolute;
+    }).join("\n");
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "no-cache");
-
     return res.status(200).send(text);
   } catch (e) {
     console.error(e);
