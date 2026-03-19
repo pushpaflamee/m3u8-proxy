@@ -4,14 +4,11 @@ export default async function handler(req, res) {
     if (!target) return res.status(400).send("Missing url");
     target = decodeURIComponent(target);
 
-    const targetUrl = new URL(target);
-    
     const response = await fetch(target, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
-        "Referer": targetUrl.origin + "/",
-        "Origin": targetUrl.origin,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36",
+        "Referer": "https://megacloud.club/",  // ✅ Kept as megacloud.club
+        "Origin": "https://megacloud.club",     // ✅ Kept as megacloud.club
         "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9",
         "Connection": "keep-alive"
@@ -44,18 +41,24 @@ export default async function handler(req, res) {
 
         let absolute;
         try {
-          absolute = line.startsWith("http")
-            ? line
-            : new URL(line, base).href;
+          absolute = line.startsWith("http") ? line : new URL(line, base).href;
         } catch {
           return line;
         }
 
-        // Segments: handle .ts, .jpg, .jpeg, .m4s, .mp4 + seg-* patterns
-        if (
-          absolute.match(/\.(ts|jpg|jpeg|png|m4s|mp4)(\?|$)/i) ||
-          absolute.includes("seg-")
-        ) {
+        // Skip if already a proxy URL
+        if (absolute.includes("/proxy/")) return absolute;
+
+        // === SEGMENT DETECTION ===
+        // 1. Known segment extensions
+        const isSegmentExt = /\.(ts|jpg|jpeg|png|m4s|mp4)(\?|$)/i.test(absolute);
+        // 2. seg-* pattern (hd-1/hd-2 style)
+        const isSegPattern = absolute.includes("seg-");
+        // 3. Token-based URLs (hd-3 style): no .m3u8, has long encoded path
+        const isTokenStyle = !absolute.includes(".m3u8") && 
+                             (absolute.includes("~") || absolute.match(/\/[A-Za-z0-9~%+_\-]{50,}/));
+
+        if (isSegmentExt || isSegPattern || isTokenStyle) {
           return `/proxy/ts?url=${encodeURIComponent(absolute)}`;
         }
 
